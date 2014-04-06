@@ -24,6 +24,7 @@ import org.specs2.mutable._
 import scalax.file.Path
 import com.madgag.git._
 import com.madgag.git.bfg.test.unpackedRepo
+import collection.convert.wrapAsScala._
 
 class MainSpec extends Specification {
 
@@ -37,6 +38,22 @@ class MainSpec extends Specification {
         ensureRemovalOf(commitHistory(haveCommitWhereObjectIds(contain(be_==(abbrId("294f")))).atLeastOnce)) {
           run("--strip-blobs-bigger-than 1K")
         }
+      }
+    }
+
+    "not remove empty commits by default" in new unpackedRepo("/sample-repos/aRepoProneToEmptyCommitsOnCleaning.git.zip") {
+      ensureInvariant(commitHist("HEAD").size) {
+        ensureRemovalOf(commitHistory(haveFile("foo").atLeastOnce)) {
+          run("--delete-files foo --no-blob-protection")
+        }
+      }
+    }
+
+    "remove empty commits if prune flag set" in new unpackedRepo("/sample-repos/aRepoProneToEmptyCommitsOnCleaning.git.zip") {
+      val (commitsThatOnlyTouchFoo, commitsThatTouchNonFooFiles) = commitHist().partition(c => diff(c.getTree,c.getParent(0).getTree).exists(_.getNewPath.endsWith("foo")))
+
+      ensureRemovalOf(commitHistory(haveFile("foo").atLeastOnce)) {
+        run("--delete-files foo --no-blob-protection --prune-empty-commits")
       }
     }
 
